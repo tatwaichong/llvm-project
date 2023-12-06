@@ -224,18 +224,15 @@ public:
   matchAndRewrite(tosa::ReshapeOp reshape, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = reshape.getLoc();
-    auto resultType = cast_if_present<ShapedType>(
-        getTypeConverter()->convertType(reshape.getType()));
-    if (!resultType) {
-      return rewriter.notifyMatchFailure(reshape.getLoc(),
-                                         "could not convert result type");
+
+    auto resultType = reshape.getResult().getType();
+    auto input = reshape.getInput1();
+
+    llvm::SmallVector<int64_t> newShape;
+    if (!tosa::collectShapeValue(reshape.getShape().getDefiningOp(),
+                               newShape)) {
+      return failure();
     }
-    auto input = dyn_cast<TypedValue<TensorType>>(adaptor.getInput1());
-    if (!input) {
-      return rewriter.notifyMatchFailure(reshape.getLoc(),
-                                         "expected input type to be tensor");
-    }
-    auto newShape = reshape.getNewShape();
 
     // Infer all intermediate types
     auto inputType = inferReshapeInputType(input, newShape);
